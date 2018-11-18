@@ -9,6 +9,7 @@
 using std::size_t;
 using std::min;
 using std::max;
+using std::swap;
 
 namespace sjtu
 {
@@ -39,6 +40,9 @@ namespace sjtu
 				return Data;
 			}
 			T& operator [] (const size_t &i) {
+				return Data[i];
+			}
+			const T& operator [] (const size_t &i) const {
 				return Data[i];
 			}
 			Vector (const Vector& b) {
@@ -86,6 +90,12 @@ namespace sjtu
 				b.Data = NULL, b.cap = 0, b.sz = 0;
 				return *this;
 			}
+			template <class U>
+			bool operator == (const Vector<U> &b) const {
+				if (sz != b.sz) return false;
+				for (size_t i = 0; i < sz; i++) if (sz != b.sz) return false;
+				return true;
+			}
 			void push_back(const T &x) {
 				if (sz >= cap) reallocate(max(MIN_ALLOCATE, cap * ALLOCATE_RATIO));
 				Data[sz++] = x;
@@ -105,14 +115,14 @@ namespace sjtu
 				sz = newsz;
 				for (size_t i = 0; i < sz; i++) Data[i] = _init;
 			}
-			Vector (std::initializer_list<T> il) {
+			Vector (const std::initializer_list<T> &il) {
 				resize(il.size());
 				sz = 0;
 				for (auto i : il) {
 					Data[sz++] = i;
 				}
 			}
-			Vector (std::initializer_list<std::initializer_list<T>> il) {
+			Vector (const std::initializer_list<std::initializer_list<T>> &il) {
 				resize(il.size() * il.begin()->size());
 				sz = 0;
 				for (auto i : il) {
@@ -127,7 +137,6 @@ namespace sjtu
 	template <class T>
 	class Matrix {
 	private:
-		// your private member variables here.
 		Vector <T> Data;
 		size_t R, C;
 	public:
@@ -211,7 +220,6 @@ namespace sjtu
 			R = il.size();
 			C = il.begin()->size();
 			Data = Data(il);
-			return *this;
 		}
 		
 	public:
@@ -219,6 +227,8 @@ namespace sjtu
 		
 		size_t columnLength() const { return C; }
 		
+		size_t Size() const {return R * C;}
+
 		void resize(size_t _n, size_t _m, T _init = T())
 		{
 			Data.resize(_n * _m, _init);
@@ -245,19 +255,19 @@ namespace sjtu
 	public:
 		const T &operator()(size_t i, size_t j) const
 		{
-			return a[i * C + j];
+			return Data[i * C + j];
 		}
 		
 		T &operator()(size_t i, size_t j)
 		{
-			return a[i * C + j];
+			return Data[i * C + j];
 		}
 		
 		Matrix<T> row(size_t i) const
 		{
 			Matrix ret(1, C);
 			for (size_t c = 0; c < C; c++) {
-				ret(0, c) = a[i * C + c];
+				ret(0, c) = Data[i * C + c];
 			}
 			return ret;
 		}
@@ -266,7 +276,7 @@ namespace sjtu
 		{
 			Matrix ret(R, 1);
 			for (size_t r = 0; r < R; r++) {
-				ret(r, 0) = a[i * r + C];
+				ret(r, 0) = Data[i * r + C];
 			}
 			return ret;
 		}
@@ -296,24 +306,33 @@ namespace sjtu
 		template <class U>
 		Matrix &operator+=(const Matrix<U> &o)
 		{
-			for (int i = )
+			// check sz
+			for (size_t i = 0; i < Data.size(); i++) Data[i] = static_cast<T>(Data[i] + o.Data[i]);
+			return *this;
 		}
 		
 		template <class U>
 		Matrix &operator-=(const Matrix<U> &o)
 		{
-			
+			for (size_t i = 0; i < Data.size(); i++) Data[i] = static_cast<T>(Data[i] - o.Data[i]);
+			return *this;
 		}
 		
 		template <class U>
 		Matrix &operator*=(const U &x)
 		{
-			
+			for (size_t i = 0; i < Data.size(); i++) Data[i] = static_cast<T>(Data[i] * x);
+			return *this;
 		}
 		
 		Matrix tran() const
 		{
-			
+			Matrix tmp(C, R);
+			for (size_t i = 0; i < R; i++)
+				for (size_t j = 0; j < C; j++) {
+					tmp(j, i) = *this(i, j);
+				}
+			return tmp;
 		}
 		
 	public: // iterator
@@ -321,10 +340,10 @@ namespace sjtu
 		{
 		public:
 			using iterator_category = std::random_access_iterator_tag;
-			using value_type        = T;
-			using pointer           = T *;
-			using reference         = T &;
-			using size_type         = size_t;
+			using value_type		= T;
+			using pointer		   = T *;
+			using reference		 = T &;
+			using size_type		 = size_t;
 			using difference_type   = std::ptrdiff_t;
 			
 			iterator() = default;
@@ -334,89 +353,147 @@ namespace sjtu
 			iterator &operator=(const iterator &) = default;
 			
 		private:
+			size_t sx, sy, ex, ey, x, y;
+			Matrix *mat;
 
-			
+			iterator(size_t _sx, size_t _sy, size_t _ex, size_t _ey, size_t _x, size_t _y, Matrix * a) {
+				sx = _sx;
+				sy = _sy;
+				ex = _ex;
+				ey = _ey;
+				x = _x;
+				y = _y;
+				mat = a;
+			}
+
+			difference_type id() const {
+				return difference_type((x - sx) * (ey - sy + 1) + y);
+			}
 		public:
-			difference_type operator-(const iterator &o)
+			difference_type operator-(const iterator &o) const
 			{
-				
+				if (sx != o.sx || sy != o.sy || ex != o.ex || ey != o.ey || mat != o.mat) return difference_type(-1);
+				return difference_type(id() - o.id());
 			}
 			
 			iterator &operator+=(difference_type offset)
 			{
-				
+				x += offset / (ey - sy + 1);
+				y += offset % (ey - sy + 1);
+				if (y > ey) {
+					y -= (ey - sy + 1);
+					x += 1;
+				}
+				if (x > ex || (x == ex && y > ey + 1)) {
+					// XXX
+				}
+				return *this;
 			}
 			
 			iterator operator+(difference_type offset) const
 			{
-				
+				iterator ret(*this);
+				ret += offset;
+				return ret;
 			}
 			
 			iterator &operator-=(difference_type offset)
 			{
+				if (id() < offset) {
+					// XXX
+				}
+				else {
+					x -= offset / (ey - sy + 1);
+					y -= offset % (ey - sy + 1);
+					if (y < sy) {
+						y += (ey - sy + 1);
+						x -= 1;
+					}
+				}
+				return *this;
 				
 			}
 			
 			iterator operator-(difference_type offset) const
 			{
-				
+				iterator ret(*this);
+				ret -= offset;
+				return ret;
 			}
 			
 			iterator &operator++()
 			{
-				
+				y++;
+				if (x < ex && y > ey) y = sy, x++;
+				return *this;
 			}
 			
 			iterator operator++(int)
 			{
-				
+				iterator ret(*this);
+				y++;
+				if (x < ex && y > ey) y = sy, x++;
+				return ret;
 			}
 			
 			iterator &operator--()
 			{
-				
+				if (y == sy) {
+					x--, y = ey;
+				}
+				else {
+					y--;
+				}
+				return *this;
 			}
 			
 			iterator operator--(int)
 			{
-				
+				iterator ret(*this);
+				if (y == sy) {
+					x--, y = ey;
+				}
+				else {
+					y--;
+				}
+				return ret;
 			}
 			
 			reference operator*() const
 			{
-				
+				return mat(x, y);
 			}
 			
 			pointer operator->() const
 			{
-				
+				return &mat(x, y);
 			}
 			
 			bool operator==(const iterator &o) const
 			{
-				
+				return x == o.x && y == o.y && sx == o.sx && sy == o.sy && ex == o.ex && ey == o.ey && mat == o.mat;
 			}
 			
 			bool operator!=(const iterator &o) const
 			{
-				
+				return !(x == o.x && y == o.y && sx == o.sx && sy == o.sy && ex == o.ex && ey == o.ey && mat == o.mat);
 			}
 		};
 		
 		iterator begin()
 		{
-			
+			return iterator(0, 0, R - 1, C - 1, 0, 0, this);
 		}
 		
 		iterator end()
 		{
-			
+			return iterator(0, 0, R - 1, C - 1, R - 1, C - (R == 0 || C == 0), this);
 		}
 		
 		std::pair<iterator, iterator> subMatrix(std::pair<size_t, size_t> l, std::pair<size_t, size_t> r)
 		{
-			
-        }
+			return std::make_pair(iterator(l.first, l.second, r.first, r.second, l.first, l.second, this), iterator(l.first, l.second, r.first, r.second, r.first, r.second + 1, this));
+		}
 	};
 		
 }
@@ -425,33 +502,64 @@ namespace sjtu
 namespace sjtu
 {
 	template <class T, class U>
-	auto operator*(const Matrix<T> &mat, const U &x)
+	auto operator*(const Matrix<T> &mat, const U &x)->Matrix<decltype(T() * U())>
 	{
-		
+		Matrix<decltype(T() * U())> ret(mat);
+		for (size_t i = 0; i < mat.rowLength(); i++) {
+			for (size_t j = 0; j < mat.columnLength(); j++) {
+				ret(i, j) *= x;
+			}
+		}
+		return ret;
 	}
 	
 	template <class T, class U>
-	auto operator*(const U &x, const Matrix<T> &mat)
+	auto operator*(const U &x, const Matrix<T> &mat)->Matrix<decltype(T() * U())>
 	{
-		
+		Matrix<decltype(T() * U())> ret(mat);
+		for (size_t i = 0; i < mat.rowLength(); i++) {
+			for (size_t j = 0; j < mat.columnLength(); j++) {
+				ret(i, j) *= x;
+			}
+		}
+		return ret;
 	}
 	
 	template <class U, class V>
-	auto operator*(const Matrix<U> &a, const Matrix<V> &b)
+	auto operator*(const Matrix<U> &a, const Matrix<V> &b)->Matrix<decltype(U() * V())>
 	{
-		
+		// Assert a.C = b.R
+		Matrix<decltype(U() * V())> ret(a.rowLength(), b.columnLength(), 0);
+		for (size_t i = 0; i < a.rowLength(); i++)
+			for (size_t k = 0; k < a.columnLength(); k++)
+				for (size_t j = 0; j < b.columnLength(); j++) {
+					ret[i][j] += a[i][k] * b[k][j];
+				}
+		return ret;
 	}
 	
 	template <class U, class V>
-	auto operator+(const Matrix<U> &a, const Matrix<V> &b)
+	auto operator+(const Matrix<U> &a, const Matrix<V> &b)->Matrix<decltype(U() + V())>
 	{
-		
+		// Assert a.R = b.R && a.C == b.C
+		Matrix<decltype(U() * V())> ret(a.rowLength(), b.columnLength(), 0);
+		for (size_t i = 0; i < a.rowLength(); i++)
+			for (size_t j = 0; j < a.columnLength(); j++) {
+				ret[i][j] = a[i][j] + b[i][j];
+			}
+		return ret;
 	}
 	
 	template <class U, class V>
-	auto operator-(const Matrix<U> &a, const Matrix<V> &b)
+	auto operator-(const Matrix<U> &a, const Matrix<V> &b)->Matrix<decltype(U() + V())>
 	{
-		
+		// Assert a.R = b.R && a.C == b.C
+		Matrix<decltype(U() * V())> ret(a.rowLength(), b.columnLength(), 0);
+		for (size_t i = 0; i < a.rowLength(); i++)
+			for (size_t j = 0; j < a.columnLength(); j++) {
+				ret[i][j] = a[i][j] - b[i][j];
+			}
+		return ret;
 	}
 	
 }
