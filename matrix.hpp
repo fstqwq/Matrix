@@ -10,33 +10,61 @@ using std::size_t;
 
 namespace sjtu
 {
-	template <class T>
+	template <class T, int ALLOCATE_RATIO = 2, size_t MIN_ALLOCATE = 8>
 	class Vector {
 		private:
-			static const int ALLOCATE_RATIO = 2;
-			static const size_t MIN_ALLOCATE = 8;
-			T *data;
+			T *Data;
 			size_t sz, cap;
-			void reallocate(size_t newcap) {
-				T *newdata = new T [newcap];
-				for (size_t i = 0; i < sz; i++) newdata[i] = data[i];
-				delete [] data;
-				data = newdata;
+			void reallocate(const size_t &newcap) {
+				T *newData = new T [newcap];
+				sz = min(sz, newcap);
+				for (size_t i = 0; i < sz; i++) newData[i] = Data[i];
+				delete [] Data;
+				Data = newData;
 				cap = newcap;
 			}
 		public:
 			Vector () {
-				sz = 0, cap = 0, data = NULL;
+				cap = sz = 0, Data = NULL;
 			}
 			void clear() {
-				if (cap > 0) {
-					delete [] data;
-					cap = sz = 0;
-				}
+				delete [] Data;
+				Data = NULL;
+				cap = sz = 0;
+			}
+			Vector (const Vector& b) {
+				delete [] Data;
+				sz = b.sz;
+				cap = sz;
+				Data = new T [sz];
+				for (size_t i = 0; i < sz; i++) Data[i] = b[i];
+			}
+			Vector (Vector&& b) {
+				delete [] Data;
+				Data = b.Data;
+				cap = b.cap;
+				sz = b.sz;
+				b.Data = NULL, b.cap = 0, b.sz = 0;
+			}
+			Vector &operator = (const Vector &b) {
+				delete [] Data;
+				sz = b.sz;
+				cap = sz;
+				Data = new T [sz];
+				for (size_t i = 0; i < sz; i++) Data[i] = b[i];
+				return *this;
+			}
+			Vector &operator = (Vector &&b) {
+				delete [] Data;
+				Data = b.Data;
+				cap = b.cap;
+				sz = b.sz;
+				b.Data = NULL, b.cap = 0, b.sz = 0;
+				return *this;
 			}
 			void push_back(const T &x) {
 				if (sz >= cap) reallocate(max(MIN_ALLOCATE, cap * ALLOCATE_RATIO));
-				data[++sz] = x;
+				Data[++sz] = x;
 			}
 			void pop_back() {
 				if (sz > 0) {
@@ -46,15 +74,22 @@ namespace sjtu
 					}
 				}
 			}
-			void resize(size_t newsz) {
+			void resize(const size_t &newsz) {
 				if (newsz > cap) {
 					reallocate(max(MIN_ALLOCATE, newsz));
-					while (sz < newsz) data[sz++] = T();
+					while (sz < newsz) Data[sz++] = T();
 				}
 				else if (newsz < max(MIN_ALLOCATE, cap / ALLOCATE_RATIO)) {
 					sz = newsz;
 					reallocate(max(MIN_ALLOCATE, cap / ALLOCATE_RATIO));
 				}
+			}
+			void assign(const size_t &newsz, const T &_init) {
+				if (cap < newsz || newsz < max(MIN_ALLOCATE, cap / ALLOCATE_RATIO)) {
+					reallocate(newsz);
+				}
+				sz = newsz;
+				for (size_t i = 0; i < sz; i++) Data[i] = _init();
 			}
 			size_t size() {
 				return sz;
@@ -62,49 +97,73 @@ namespace sjtu
 			size_t capacity() {
 				return cap;
 			}
-			T &operator [] (size_t i) {
-				return data[i];
+			T* data() {
+				return Data;
+			}
+			T& operator [] (const size_t &i) {
+				return Data[i];
 			}
 	};
-
+	
 	template <class T>
 	class Matrix {
 	private:
 		// your private member variables here.
-			
+		Vector <T> Data;
+		size_t R, C;
 	public:
 		Matrix() = default;
 		
 		Matrix(size_t n, size_t m, T _init = T())
 		{
-			
+			R = n;
+			C = m;
+			Data.assign(R * C, _init);
 		}
 		
 		explicit Matrix(std::pair<size_t, size_t> sz, T _init = T())
 		{
-			
+			R = sz.first;
+			C = sz.second;
+			Data.assign(R * C, _init);
 		}
-		
+	
 		Matrix(const Matrix &o)
 		{
-			
+			R = o.R;
+			C = o.C;
+			Data = o.Data;
 		}
 		
 		template <class U>
 		Matrix(const Matrix<U> &o)
 		{
-			
+			R = o.R;
+			C = o.C;
+			Data.resize(R * C);
+			for (size_t i = 0; i < R * C; i++) {
+				Data[i] = static_cast<T>(o.Data[i]);
+			}
 		}
 		
 		Matrix &operator=(const Matrix &o)
 		{
-			
+			R = o.R;
+			C = o.C;
+			Data = o.Data;
+			return *this;
 		}
 		
 		template <class U>
 		Matrix &operator=(const Matrix<U> &o)
 		{
-			
+			R = o.R;
+			C = o.C;
+			Data.resize(R * C);
+			for (size_t i = 0; i < R * C; i++) {
+				Data[i] = static_cast<T>(o.Data[i]);
+			}
+			return *this;
 		}
 		
 		Matrix(Matrix &&o) noexcept
