@@ -60,10 +60,10 @@ namespace sjtu
 				Data = NULL;
 				cap = sz = 0;
 			}
-			void resize(const size_t &newsz) {
+			void resize(const size_t &newsz, const T _init = T()) {
 				if (newsz > cap) {
 					reallocate(max(MIN_ALLOCATE, newsz));
-					while (sz < newsz) Data[sz++] = T();
+					while (sz < newsz) Data[sz++] = _init;
 				}
 				else if (newsz < max(MIN_ALLOCATE, cap / ALLOCATE_RATIO)) {
 					sz = newsz;
@@ -103,7 +103,7 @@ namespace sjtu
 					reallocate(newsz);
 				}
 				sz = newsz;
-				for (size_t i = 0; i < sz; i++) Data[i] = _init();
+				for (size_t i = 0; i < sz; i++) Data[i] = _init;
 			}
 			Vector (std::initializer_list<T> il) {
 				resize(il.size());
@@ -210,78 +210,93 @@ namespace sjtu
 		{
 			R = il.size();
 			C = il.begin()->size();
-			Data = il;
+			Data = Data(il);
+			return *this;
 		}
 		
 	public:
-		size_t rowLength() const { }
+		size_t rowLength() const { return R; }
 		
-		size_t columnLength() const { }
+		size_t columnLength() const { return C; }
 		
 		void resize(size_t _n, size_t _m, T _init = T())
 		{
-			
+			Data.resize(_n * _m, _init);
+			R = _n, C = _m;
 		}
 		
 		void resize(std::pair<size_t, size_t> sz, T _init = T())
 		{
-			
+			Data.resize(sz.first * sz.second, _init);
+			R = sz.first, C = sz.second;
 		}
 		
 		std::pair<size_t, size_t> size() const
 		{
-			
+			return std::make_pair(R, C);
 		};
 		
 		void clear()
 		{
-			
+			R = 0, C = 0;
+			Data.clear();
 		}
 		
 	public:
 		const T &operator()(size_t i, size_t j) const
 		{
-			
+			return a[i * C + j];
 		}
 		
 		T &operator()(size_t i, size_t j)
 		{
-			
+			return a[i * C + j];
 		}
 		
 		Matrix<T> row(size_t i) const
 		{
-			
+			Matrix ret(1, C);
+			for (size_t c = 0; c < C; c++) {
+				ret(0, c) = a[i * C + c];
+			}
+			return ret;
 		}
 		
 		Matrix<T> column(size_t i) const
 		{
-			
+			Matrix ret(R, 1);
+			for (size_t r = 0; r < R; r++) {
+				ret(r, 0) = a[i * r + C];
+			}
+			return ret;
 		}
-		
 		
 	public:
 		template <class U>
 		bool operator==(const Matrix<U> &o) const
 		{
-			
+			return R == o.R && C == o.C && Data == o.Data; //XXX
 		}
 		
 		template <class U>
 		bool operator!=(const Matrix<U> &o) const
 		{
-			
+			return !(R == o.R && C == o.C && Data == o.Data); //XXX
 		}
 		
 		Matrix operator-() const
 		{
-			
+			Matrix ret(*this);
+			for (size_t i = 0; i < R * C; i++) {
+				ret[i] = -ret[i];
+			}
+			return ret;
 		}
 		
 		template <class U>
 		Matrix &operator+=(const Matrix<U> &o)
 		{
-			
+			for (int i = )
 		}
 		
 		template <class U>
