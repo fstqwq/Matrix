@@ -26,17 +26,24 @@ namespace sjtu
 				Data = newData;
 				cap = newcap;
 			}
+			void stealedClear() {
+				cap = sz = 0, Data = NULL;
+			}
 		public:
 			Vector () {
 				cap = sz = 0, Data = NULL;
 			}
-			size_t size() {
+			size_t size() const {
 				return sz;
 			}
-			size_t capacity() {
+			size_t capacity() const {
 				return cap;
 			}
 			T* data() {
+				return Data;
+			}
+			
+			const T* data() const {
 				return Data;
 			}
 			T& operator [] (const size_t &i) {
@@ -76,7 +83,7 @@ namespace sjtu
 			}
 			Vector &operator = (const Vector &b) {
 				delete [] Data;
-				sz = b.sz;
+				sz = b.size();
 				cap = sz;
 				Data = new T [sz];
 				for (size_t i = 0; i < sz; i++) Data[i] = b[i];
@@ -84,16 +91,16 @@ namespace sjtu
 			}
 			Vector &operator = (Vector &&b) {
 				delete [] Data;
-				Data = b.Data;
-				cap = b.cap;
-				sz = b.sz;
-				b.Data = NULL, b.cap = 0, b.sz = 0;
+				Data = b.data();
+				cap = b.capacity();
+				sz = b.size();
+				b.stealedClear();
 				return *this;
 			}
 			template <class U>
 			bool operator == (const Vector<U> &b) const {
-				if (sz != b.sz) return false;
-				for (size_t i = 0; i < sz; i++) if (sz != b.sz) return false;
+				if (sz != b.size()) return false;
+				for (size_t i = 0; i < sz; i++) if (Data[i] != b[i]) return false;
 				return true;
 			}
 			void push_back(const T &x) {
@@ -115,19 +122,13 @@ namespace sjtu
 				sz = newsz;
 				for (size_t i = 0; i < sz; i++) Data[i] = _init;
 			}
-			Vector (const std::initializer_list<T> &il) {
-				resize(il.size());
-				sz = 0;
-				for (auto i : il) {
-					Data[sz++] = i;
-				}
-			}
-			Vector (const std::initializer_list<std::initializer_list<T>> &il) {
+			template <class U>
+			Vector (const std::initializer_list<std::initializer_list<U>> &il) {
 				resize(il.size() * il.begin()->size());
 				sz = 0;
-				for (auto i : il) {
-					for (auto j : i) {
-						Data[sz++] = j;
+				for (auto &i : il) {
+					for (auto &j : i) {
+						Data[sz++] = static_cast<T>(j);
 					}
 				}
 			}
@@ -158,56 +159,56 @@ namespace sjtu
 	
 		Matrix(const Matrix &o)
 		{
-			R = o.R;
-			C = o.C;
+			R = o.rowLength();
+			C = o.columnLength();
 			Data = o.Data;
 		}
-		
+	
 		template <class U>
 		Matrix(const Matrix<U> &o)
 		{
-			R = o.R;
-			C = o.C;
+			R = o.rowLength();
+			C = o.columnLength();
 			Data.resize(R * C);
 			for (size_t i = 0; i < R * C; i++) {
-				Data[i] = static_cast<T>(o.Data[i]);
+				Data[i] = static_cast<T>(o[i]);
 			}
 		}
 		
 		Matrix &operator=(const Matrix &o)
 		{
-			R = o.R;
-			C = o.C;
-			Data = o.Data;
+			R = o.rowLength();
+			C = o.columnLength();
+			Data = o.data();
 			return *this;
 		}
 		
 		template <class U>
 		Matrix &operator=(const Matrix<U> &o)
 		{
-			R = o.R;
-			C = o.C;
+			R = o.rowLength();
+			C = o.columnLength();
 			Data.resize(R * C);
 			for (size_t i = 0; i < R * C; i++) {
-				Data[i] = static_cast<T>(o.Data[i]);
+				Data[i] = static_cast<T>(o[i]);
 			}
 			return *this;
 		}
 		
 		Matrix(Matrix &&o) noexcept
 		{
-			R = o.R;
-			C = o.C;
+			R = o.rowLength();
+			C = o.columnLength();
 			Data = std::move(o.Data);
-			o.R = 0, o.C = 0;
+			o.clear();
 		}
 		
 		Matrix &operator=(Matrix &&o) noexcept
 		{
-			R = o.R;
-			C = o.C;
+			R = o.rowLength();
+			C = o.columnLength();
 			Data = std::move(o.Data);
-			o.R = 0, o.C = 0;
+			o.clear();
 			return *this;
 		}
 		
@@ -219,13 +220,28 @@ namespace sjtu
 		{
 			R = il.size();
 			C = il.begin()->size();
-			Data = Data(il);
+			Data = Vector<T>(il);
 		}
 		
 	public:
 		size_t rowLength() const { return R; }
 		
 		size_t columnLength() const { return C; }
+
+		T &operator [] (const size_t x) {
+			return Data[x];
+		}
+		const T &operator [] (const size_t x) const {
+			return Data[x];
+		}
+
+		Vector<T> & data() {
+			return Data;
+		}
+
+		const Vector<T> & data() const {
+			return Data;
+		}
 		
 		size_t Size() const {return R * C;}
 
@@ -251,7 +267,7 @@ namespace sjtu
 			R = 0, C = 0;
 			Data.clear();
 		}
-		
+	
 	public:
 		const T &operator()(size_t i, size_t j) const
 		{
@@ -285,13 +301,13 @@ namespace sjtu
 		template <class U>
 		bool operator==(const Matrix<U> &o) const
 		{
-			return R == o.R && C == o.C && Data == o.Data; //XXX
+			return R == o.rowLength() && C == o.columnLength() && Data == o.data(); //XXX
 		}
 		
 		template <class U>
 		bool operator!=(const Matrix<U> &o) const
 		{
-			return !(R == o.R && C == o.C && Data == o.Data); //XXX
+			return !(R == o.rowLength() && C == o.columnLength() && Data == o.data()); //XXX
 		}
 		
 		Matrix operator-() const
@@ -330,7 +346,7 @@ namespace sjtu
 			Matrix tmp(C, R);
 			for (size_t i = 0; i < R; i++)
 				for (size_t j = 0; j < C; j++) {
-					tmp(j, i) = *this(i, j);
+					tmp(j, i) = (*this)(i, j);
 				}
 			return tmp;
 		}
@@ -354,7 +370,12 @@ namespace sjtu
 			
 		private:
 			size_t sx, sy, ex, ey, x, y;
-			Matrix *mat;
+			Matrix *mat;	
+
+			difference_type id() const {
+				return difference_type((x - sx) * (ey - sy + 1) + y);
+			}
+		public:
 
 			iterator(size_t _sx, size_t _sy, size_t _ex, size_t _ey, size_t _x, size_t _y, Matrix * a) {
 				sx = _sx;
@@ -366,10 +387,6 @@ namespace sjtu
 				mat = a;
 			}
 
-			difference_type id() const {
-				return difference_type((x - sx) * (ey - sy + 1) + y);
-			}
-		public:
 			difference_type operator-(const iterator &o) const
 			{
 				if (sx != o.sx || sy != o.sy || ex != o.ex || ey != o.ey || mat != o.mat) return difference_type(-1);
@@ -461,12 +478,12 @@ namespace sjtu
 			
 			reference operator*() const
 			{
-				return mat(x, y);
+				return (*mat)(x, y);
 			}
 			
 			pointer operator->() const
 			{
-				return &mat(x, y);
+				return &((*mat)(x, y));
 			}
 			
 			bool operator==(const iterator &o) const
@@ -533,7 +550,7 @@ namespace sjtu
 		for (size_t i = 0; i < a.rowLength(); i++)
 			for (size_t k = 0; k < a.columnLength(); k++)
 				for (size_t j = 0; j < b.columnLength(); j++) {
-					ret[i][j] += a[i][k] * b[k][j];
+					ret(i, j) += a(i, k) * b(k, j);
 				}
 		return ret;
 	}
@@ -545,7 +562,7 @@ namespace sjtu
 		Matrix<decltype(U() * V())> ret(a.rowLength(), b.columnLength(), 0);
 		for (size_t i = 0; i < a.rowLength(); i++)
 			for (size_t j = 0; j < a.columnLength(); j++) {
-				ret[i][j] = a[i][j] + b[i][j];
+				ret(i, j) = a(i, j) + b(i, j);
 			}
 		return ret;
 	}
@@ -557,7 +574,7 @@ namespace sjtu
 		Matrix<decltype(U() * V())> ret(a.rowLength(), b.columnLength(), 0);
 		for (size_t i = 0; i < a.rowLength(); i++)
 			for (size_t j = 0; j < a.columnLength(); j++) {
-				ret[i][j] = a[i][j] - b[i][j];
+				ret(i, j) = a(i, j) - b(i, j);
 			}
 		return ret;
 	}
