@@ -7,6 +7,8 @@
 #include <iterator>
 
 using std::size_t;
+using std::min;
+using std::max;
 
 namespace sjtu
 {
@@ -27,10 +29,17 @@ namespace sjtu
 			Vector () {
 				cap = sz = 0, Data = NULL;
 			}
-			void clear() {
-				delete [] Data;
-				Data = NULL;
-				cap = sz = 0;
+			size_t size() {
+				return sz;
+			}
+			size_t capacity() {
+				return cap;
+			}
+			T* data() {
+				return Data;
+			}
+			T& operator [] (const size_t &i) {
+				return Data[i];
 			}
 			Vector (const Vector& b) {
 				delete [] Data;
@@ -45,6 +54,21 @@ namespace sjtu
 				cap = b.cap;
 				sz = b.sz;
 				b.Data = NULL, b.cap = 0, b.sz = 0;
+			}
+			void clear() {
+				delete [] Data;
+				Data = NULL;
+				cap = sz = 0;
+			}
+			void resize(const size_t &newsz) {
+				if (newsz > cap) {
+					reallocate(max(MIN_ALLOCATE, newsz));
+					while (sz < newsz) Data[sz++] = T();
+				}
+				else if (newsz < max(MIN_ALLOCATE, cap / ALLOCATE_RATIO)) {
+					sz = newsz;
+					reallocate(max(MIN_ALLOCATE, cap / ALLOCATE_RATIO));
+				}
 			}
 			Vector &operator = (const Vector &b) {
 				delete [] Data;
@@ -64,7 +88,7 @@ namespace sjtu
 			}
 			void push_back(const T &x) {
 				if (sz >= cap) reallocate(max(MIN_ALLOCATE, cap * ALLOCATE_RATIO));
-				Data[++sz] = x;
+				Data[sz++] = x;
 			}
 			void pop_back() {
 				if (sz > 0) {
@@ -74,16 +98,6 @@ namespace sjtu
 					}
 				}
 			}
-			void resize(const size_t &newsz) {
-				if (newsz > cap) {
-					reallocate(max(MIN_ALLOCATE, newsz));
-					while (sz < newsz) Data[sz++] = T();
-				}
-				else if (newsz < max(MIN_ALLOCATE, cap / ALLOCATE_RATIO)) {
-					sz = newsz;
-					reallocate(max(MIN_ALLOCATE, cap / ALLOCATE_RATIO));
-				}
-			}
 			void assign(const size_t &newsz, const T &_init) {
 				if (cap < newsz || newsz < max(MIN_ALLOCATE, cap / ALLOCATE_RATIO)) {
 					reallocate(newsz);
@@ -91,18 +105,23 @@ namespace sjtu
 				sz = newsz;
 				for (size_t i = 0; i < sz; i++) Data[i] = _init();
 			}
-			size_t size() {
-				return sz;
+			Vector (std::initializer_list<T> il) {
+				resize(il.size());
+				sz = 0;
+				for (auto i : il) {
+					Data[sz++] = i;
+				}
 			}
-			size_t capacity() {
-				return cap;
+			Vector (std::initializer_list<std::initializer_list<T>> il) {
+				resize(il.size() * il.begin()->size());
+				sz = 0;
+				for (auto i : il) {
+					for (auto j : i) {
+						Data[sz++] = j;
+					}
+				}
 			}
-			T* data() {
-				return Data;
-			}
-			T& operator [] (const size_t &i) {
-				return Data[i];
-			}
+
 	};
 	
 	template <class T>
@@ -168,19 +187,30 @@ namespace sjtu
 		
 		Matrix(Matrix &&o) noexcept
 		{
-			
+			R = o.R;
+			C = o.C;
+			Data = std::move(o.Data);
+			o.R = 0, o.C = 0;
 		}
 		
 		Matrix &operator=(Matrix &&o) noexcept
 		{
-			
+			R = o.R;
+			C = o.C;
+			Data = std::move(o.Data);
+			o.R = 0, o.C = 0;
+			return *this;
 		}
 		
-		~Matrix() { }
+		~Matrix() {
+			Data.clear();
+		}
 		
 		Matrix(std::initializer_list<std::initializer_list<T>> il)
 		{
-			
+			R = il.size();
+			C = il.begin()->size();
+			Data = il;
 		}
 		
 	public:
