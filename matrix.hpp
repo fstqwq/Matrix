@@ -134,6 +134,9 @@ namespace sjtu
 				sz = 0, cap = il.size() * il.begin()->size();
 				Data = new T [cap];
 				for (auto &i : il) {
+					if (i.size() != il.begin()->size()) {
+						throw std::invalid_argument("invalid initializer list");
+					}
 					for (auto &j : i) {
 						Data[sz++] = T(j);
 					}
@@ -163,7 +166,7 @@ namespace sjtu
 		Matrix(const Matrix &o) : Data(o.data()), R(o.rowLength()), C(o.columnLength()) {}
 
 		template <class U>
-		Matrix(const Matrix<U> &o) : Data(R * C), R(o.rowLength()), C(o.columnLength()) {
+		Matrix(const Matrix<U> &o) : Data(o.rowLength() * o.columnLength()), R(o.rowLength()), C(o.columnLength()) {
 			for (size_t i = 0; i < R * C; i++) {
 				Data[i] = T(o[i]);
 			}
@@ -223,9 +226,15 @@ namespace sjtu
 		size_t columnLength() const { return C; }
 
 		T &operator [] (const size_t x) {
+			if (x >= Data.size()) {
+				throw std::invalid_argument("out of range");
+			}
 			return Data[x];
 		}
 		const T &operator [] (const size_t x) const {
+			if (x >= Data.size()) {
+				throw std::invalid_argument("out of range");
+			}
 			return Data[x];
 		}
 
@@ -265,16 +274,25 @@ namespace sjtu
 	public:
 		const T &operator()(size_t i, size_t j) const
 		{
+			if (i >= R || j >= C) {
+				throw std::invalid_argument("out of range");
+			}
 			return Data[i * C + j];
 		}
 		
 		T &operator()(size_t i, size_t j)
 		{
+			if (i >= R || j >= C) {
+				throw std::invalid_argument("out of range");
+			}
 			return Data[i * C + j];
 		}
 		
 		Matrix<T> row(size_t i) const
 		{
+			if (i >= R) {
+				throw std::invalid_argument("out of range");
+			}
 			Matrix ret(1, C);
 			for (size_t c = 0; c < C; c++) {
 				ret(0, c) = Data[i * C + c];
@@ -284,9 +302,12 @@ namespace sjtu
 		
 		Matrix<T> column(size_t i) const
 		{
+			if (i >= C) {
+				throw std::invalid_argument("out of range");
+			}
 			Matrix ret(R, 1);
 			for (size_t r = 0; r < R; r++) {
-				ret(r, 0) = Data[i * r + C];
+				ret(r, 0) = Data[r * C + i];
 			}
 			return ret;
 		}
@@ -316,7 +337,9 @@ namespace sjtu
 		template <class U>
 		Matrix &operator+=(const Matrix<U> &o)
 		{
-			// check sz
+			if (R != o.rowLength() || C != o.columnLength()) {
+				throw std::invalid_argument("addition between invalid matrices");
+			}
 			for (size_t i = 0; i < Data.size(); i++) Data[i] = T(Data[i] + o.Data[i]);
 			return *this;
 		}
@@ -324,6 +347,9 @@ namespace sjtu
 		template <class U>
 		Matrix &operator-=(const Matrix<U> &o)
 		{
+			if (R != o.rowLength() || C != o.columnLength()) {
+				throw std::invalid_argument("subtraction between invalid matrices");
+			}
 			for (size_t i = 0; i < Data.size(); i++) Data[i] = T(Data[i] - o.Data[i]);
 			return *this;
 		}
@@ -396,7 +422,7 @@ namespace sjtu
 					x += 1;
 				}
 				if (x > ex || (x == ex && y > ey + 1)) {
-					// XXX
+					throw std::invalid_argument("out of range");
 				}
 				return *this;
 			}
@@ -411,7 +437,7 @@ namespace sjtu
 			iterator &operator-=(difference_type offset)
 			{
 				if (id() < offset) {
-					// XXX
+					throw std::invalid_argument("out of range");
 				}
 				else {
 					x -= offset / (ey - sy + 1);
@@ -436,6 +462,9 @@ namespace sjtu
 			{
 				y++;
 				if (x < ex && y > ey) y = sy, x++;
+				if (x > ex || (x == ex && y > ey + 1)) {
+					throw std::invalid_argument("out of range");
+				}
 				return *this;
 			}
 			
@@ -444,11 +473,17 @@ namespace sjtu
 				iterator ret(*this);
 				y++;
 				if (x < ex && y > ey) y = sy, x++;
+				if (x > ex || (x == ex && y > ey + 1)) {
+					throw std::invalid_argument("out of range");
+				}
 				return ret;
 			}
 			
 			iterator &operator--()
 			{
+				if (id() == 0) {
+					throw std::invalid_argument("out of range");
+				}
 				if (y == sy) {
 					x--, y = ey;
 				}
@@ -461,6 +496,9 @@ namespace sjtu
 			iterator operator--(int)
 			{
 				iterator ret(*this);
+				if (id() == 0) {
+					throw std::invalid_argument("out of range");
+				}
 				if (y == sy) {
 					x--, y = ey;
 				}
@@ -503,6 +541,9 @@ namespace sjtu
 		
 		std::pair<iterator, iterator> subMatrix(std::pair<size_t, size_t> l, std::pair<size_t, size_t> r)
 		{
+			if (l.first > r.first || l.second > r.second) {
+				throw std::invalid_argument("invalid submatrix");
+			}
 			return std::make_pair(iterator(l.first, l.second, r.first, r.second, l.first, l.second, this), iterator(l.first, l.second, r.first, r.second, r.first, r.second + 1, this));
 		}
 	};
@@ -539,7 +580,9 @@ namespace sjtu
 	template <class U, class V>
 	auto operator*(const Matrix<U> &a, const Matrix<V> &b)->Matrix<decltype(U() * V())>
 	{
-		// Assert a.C = b.R
+		if (a.columnLength() != b.rowLength()) {
+			throw std::invalid_argument("multiplication between invalid matrices");
+		}
 		Matrix<decltype(U() * V())> ret(a.rowLength(), b.columnLength(), 0);
 		for (size_t i = 0; i < a.rowLength(); i++)
 			for (size_t k = 0; k < a.columnLength(); k++)
@@ -552,8 +595,10 @@ namespace sjtu
 	template <class U, class V>
 	auto operator+(const Matrix<U> &a, const Matrix<V> &b)->Matrix<decltype(U() + V())>
 	{
-		// Assert a.R = b.R && a.C == b.C
-		Matrix<decltype(U() * V())> ret(a.rowLength(), b.columnLength(), 0);
+		if (a.rowLength() != b.rowLength() || a.columnLength() != b.columnLength()) {
+			throw std::invalid_argument("addition between invalid matrices");
+		}
+		Matrix<decltype(U() + V())> ret(a.rowLength(), b.columnLength(), 0);
 		for (size_t i = 0; i < a.rowLength(); i++)
 			for (size_t j = 0; j < a.columnLength(); j++) {
 				ret(i, j) = a(i, j) + b(i, j);
@@ -562,10 +607,12 @@ namespace sjtu
 	}
 	
 	template <class U, class V>
-	auto operator-(const Matrix<U> &a, const Matrix<V> &b)->Matrix<decltype(U() + V())>
+	auto operator-(const Matrix<U> &a, const Matrix<V> &b)->Matrix<decltype(U() - V())>
 	{
-		// Assert a.R = b.R && a.C == b.C
-		Matrix<decltype(U() * V())> ret(a.rowLength(), b.columnLength(), 0);
+		if (a.rowLength() != b.rowLength() || a.columnLength() != b.columnLength()) {
+			throw std::invalid_argument("subtraction between invalid matrices");
+		}
+		Matrix<decltype(U() - V())> ret(a.rowLength(), b.columnLength(), 0);
 		for (size_t i = 0; i < a.rowLength(); i++)
 			for (size_t j = 0; j < a.columnLength(); j++) {
 				ret(i, j) = a(i, j) - b(i, j);
