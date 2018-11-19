@@ -26,7 +26,7 @@ namespace sjtu
 				Data = newData;
 				cap = newcap;
 			}
-		
+			
 		public:
 			Vector () {
 				cap = sz = 0, Data = NULL;
@@ -34,6 +34,35 @@ namespace sjtu
 			Vector (size_t SZ) {
 				cap = sz = SZ;
 				Data = new T [sz];
+			}
+			Vector (const Vector& b) {
+				sz = b.sz;
+				cap = sz;
+				Data = new T [sz];
+				for (size_t i = 0; i < sz; i++) Data[i] = b[i];
+			}
+			Vector (Vector&& b) {
+				Data = b.data();
+				cap = b.cap;
+				sz = b.sz;
+				b.stealedClear();
+			}
+			template <class U>
+			Vector (const std::initializer_list<std::initializer_list<U>> &il) {
+				sz = 0, cap = il.size() * il.begin()->size();
+				Data = new T [cap];
+				for (auto &i : il) {
+					if (i.size() != il.begin()->size()) {
+						clear();
+						throw std::invalid_argument("invalid initializer list");
+					}
+					for (auto &j : i) {
+						Data[sz++] = T(j);
+					}
+				}
+			}
+			~Vector () {
+				delete [] Data;
 			}
 			size_t size() const {
 				return sz;
@@ -53,18 +82,6 @@ namespace sjtu
 			}
 			const T& operator [] (const size_t &i) const {
 				return Data[i];
-			}
-			Vector (const Vector& b) {
-				sz = b.sz;
-				cap = sz;
-				Data = new T [sz];
-				for (size_t i = 0; i < sz; i++) Data[i] = b[i];
-			}
-			Vector (Vector&& b) {
-				Data = b.Data;
-				cap = b.cap;
-				sz = b.sz;
-				b.stealedClear();
 			}
 			void clear() {
 				delete [] Data;
@@ -110,6 +127,7 @@ namespace sjtu
 				for (size_t i = 0; i < sz; i++) if (Data[i] != b[i]) return false;
 				return true;
 			}
+			/** for fun
 			void push_back(const T &x) {
 				if (sz >= cap) reallocate(max(MIN_ALLOCATE, cap * ALLOCATE_RATIO));
 				Data[sz++] = x;
@@ -122,27 +140,14 @@ namespace sjtu
 					}
 				}
 			}
+			**/
 			void assign(const size_t &newsz, const T &_init) {
-				if (cap < newsz || newsz < max(MIN_ALLOCATE, cap / ALLOCATE_RATIO)) {
+				if (cap < newsz || newsz < cap / ALLOCATE_RATIO) {
 					reallocate(newsz);
 				}
 				sz = newsz;
 				for (size_t i = 0; i < sz; i++) Data[i] = _init;
 			}
-			template <class U>
-			Vector (const std::initializer_list<std::initializer_list<U>> &il) {
-				sz = 0, cap = il.size() * il.begin()->size();
-				Data = new T [cap];
-				for (auto &i : il) {
-					if (i.size() != il.begin()->size()) {
-						throw std::invalid_argument("invalid initializer list");
-					}
-					for (auto &j : i) {
-						Data[sz++] = T(j);
-					}
-				}
-			}
-
 	};
 	
 	template <class T>
