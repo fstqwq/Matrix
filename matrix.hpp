@@ -26,12 +26,14 @@ namespace sjtu
 				Data = newData;
 				cap = newcap;
 			}
-			void stealedClear() {
-				cap = sz = 0, Data = NULL;
-			}
+		
 		public:
 			Vector () {
 				cap = sz = 0, Data = NULL;
+			}
+			Vector (size_t SZ) {
+				cap = sz = SZ;
+				Data = new T [sz];
 			}
 			size_t size() const {
 				return sz;
@@ -53,23 +55,24 @@ namespace sjtu
 				return Data[i];
 			}
 			Vector (const Vector& b) {
-				delete [] Data;
 				sz = b.sz;
 				cap = sz;
 				Data = new T [sz];
 				for (size_t i = 0; i < sz; i++) Data[i] = b[i];
 			}
 			Vector (Vector&& b) {
-				delete [] Data;
 				Data = b.Data;
 				cap = b.cap;
 				sz = b.sz;
-				b.Data = NULL, b.cap = 0, b.sz = 0;
+				b.stealedClear();
 			}
 			void clear() {
 				delete [] Data;
 				Data = NULL;
 				cap = sz = 0;
+			}
+			void stealedClear() {
+				cap = sz = 0, Data = NULL;
 			}
 			void resize(const size_t &newsz, const T _init = T()) {
 				if (newsz > cap) {
@@ -82,19 +85,23 @@ namespace sjtu
 				}
 			}
 			Vector &operator = (const Vector &b) {
-				delete [] Data;
-				sz = b.size();
-				cap = sz;
-				Data = new T [sz];
-				for (size_t i = 0; i < sz; i++) Data[i] = b[i];
+				if (Data != b.data()) {
+					delete [] Data;
+					sz = b.size();
+					cap = sz;
+					Data = new T [sz];
+					for (size_t i = 0; i < sz; i++) Data[i] = b[i];
+				}
 				return *this;
 			}
 			Vector &operator = (Vector &&b) {
-				delete [] Data;
-				Data = b.data();
-				cap = b.capacity();
-				sz = b.size();
-				b.stealedClear();
+				if (Data != b.data()) {
+					delete [] Data;
+					Data = b.data();
+					cap = b.capacity();
+					sz = b.size();
+					b.stealedClear();
+				}
 				return *this;
 			}
 			template <class U>
@@ -124,11 +131,11 @@ namespace sjtu
 			}
 			template <class U>
 			Vector (const std::initializer_list<std::initializer_list<U>> &il) {
-				resize(il.size() * il.begin()->size());
-				sz = 0;
+				sz = 0, cap = il.size() * il.begin()->size();
+				Data = new T [cap];
 				for (auto &i : il) {
 					for (auto &j : i) {
-						Data[sz++] = static_cast<T>(j);
+						Data[sz++] = T(j);
 					}
 				}
 			}
@@ -141,37 +148,24 @@ namespace sjtu
 		Vector <T> Data;
 		size_t R, C;
 	public:
-		Matrix() = default;
+		Matrix() : Data(), R(0), C(0) {}
 		
-		Matrix(size_t n, size_t m, T _init = T())
+		Matrix(size_t n, size_t m, T _init = T()) : Data(), R(n), C(m)
 		{
-			R = n;
-			C = m;
 			Data.assign(R * C, _init);
 		}
 		
-		explicit Matrix(std::pair<size_t, size_t> sz, T _init = T())
+		explicit Matrix(std::pair<size_t, size_t> sz, T _init = T()) : Data(), R(sz.first), C(sz.second)
 		{
-			R = sz.first;
-			C = sz.second;
 			Data.assign(R * C, _init);
 		}
 	
-		Matrix(const Matrix &o)
-		{
-			R = o.rowLength();
-			C = o.columnLength();
-			Data = o.Data;
-		}
-	
+		Matrix(const Matrix &o) : Data(o.data()), R(o.rowLength()), C(o.columnLength()) {}
+
 		template <class U>
-		Matrix(const Matrix<U> &o)
-		{
-			R = o.rowLength();
-			C = o.columnLength();
-			Data.resize(R * C);
+		Matrix(const Matrix<U> &o) : Data(R * C), R(o.rowLength()), C(o.columnLength()) {
 			for (size_t i = 0; i < R * C; i++) {
-				Data[i] = static_cast<T>(o[i]);
+				Data[i] = T(o[i]);
 			}
 		}
 		
@@ -190,7 +184,7 @@ namespace sjtu
 			C = o.columnLength();
 			Data.resize(R * C);
 			for (size_t i = 0; i < R * C; i++) {
-				Data[i] = static_cast<T>(o[i]);
+				Data[i] = T(o[i]);
 			}
 			return *this;
 		}
@@ -200,7 +194,7 @@ namespace sjtu
 			R = o.rowLength();
 			C = o.columnLength();
 			Data = std::move(o.Data);
-			o.clear();
+			o.data().stealedClear();
 		}
 		
 		Matrix &operator=(Matrix &&o) noexcept
@@ -208,7 +202,7 @@ namespace sjtu
 			R = o.rowLength();
 			C = o.columnLength();
 			Data = std::move(o.Data);
-			o.clear();
+			o.data().stealedClear();
 			return *this;
 		}
 		
@@ -323,21 +317,21 @@ namespace sjtu
 		Matrix &operator+=(const Matrix<U> &o)
 		{
 			// check sz
-			for (size_t i = 0; i < Data.size(); i++) Data[i] = static_cast<T>(Data[i] + o.Data[i]);
+			for (size_t i = 0; i < Data.size(); i++) Data[i] = T(Data[i] + o.Data[i]);
 			return *this;
 		}
 		
 		template <class U>
 		Matrix &operator-=(const Matrix<U> &o)
 		{
-			for (size_t i = 0; i < Data.size(); i++) Data[i] = static_cast<T>(Data[i] - o.Data[i]);
+			for (size_t i = 0; i < Data.size(); i++) Data[i] = T(Data[i] - o.Data[i]);
 			return *this;
 		}
 		
 		template <class U>
 		Matrix &operator*=(const U &x)
 		{
-			for (size_t i = 0; i < Data.size(); i++) Data[i] = static_cast<T>(Data[i] * x);
+			for (size_t i = 0; i < Data.size(); i++) Data[i] = T(Data[i] * x);
 			return *this;
 		}
 		
