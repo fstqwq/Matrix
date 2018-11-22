@@ -26,7 +26,6 @@ class Vector {
         Data = newData;
         cap = newcap;
     }
-    void stealedClear() { cap = sz = 0, Data = NULL; }
 
    public:
     Vector() { cap = sz = 0, Data = NULL; }
@@ -47,6 +46,7 @@ class Vector {
         sz = b.sz;
         b.stealedClear();
     }
+    void stealedClear() { cap = sz = 0, Data = NULL; }
     template <class U>
     Vector(const std::initializer_list<std::initializer_list<U>>& il) {
         sz = 0, cap = il.size() * il.begin()->size();
